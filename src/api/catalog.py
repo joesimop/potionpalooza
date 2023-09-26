@@ -14,7 +14,7 @@ def get_catalog():
 
     # Can return a max of 20 items.
     with db.engine.begin() as conn:
-        result = conn.execute("SELECT * FROM global_inventory")
+        result = conn.execute(text("SELECT * FROM global_inventory"))
         print(result.fetchall())
 
     return [
