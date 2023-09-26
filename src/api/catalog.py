@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 import sqlalchemy
+from sqlalchemy import text
 from src import database as db
 
 router = APIRouter()
