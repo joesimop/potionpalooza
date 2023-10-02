@@ -27,10 +27,11 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
             # If red potion...
             if potion.potion_type == [100, 0, 0, 0]:
 
-                # Update the number of red potions in inventory
+                # Update the number of red potions and fluid in inventory
                 conn.execute(
                      sqlalchemy.text(
-                          f"UPDATE global_inventory SET num_red_potions = num_red_potions + {potion.quantity}"
+                          f"UPDATE global_inventory SET num_red_potions = num_red_potions + {potion.quantity} \
+                                                        num_red_ml = num_red_ml - {potion.quantity * 100}"
                     )
                 )
             
@@ -64,17 +65,7 @@ def get_bottle_plan():
             bottledRedPotionCount = 0
 
             # Bottle all red fluid into red potions by 100ml increments.
-            while inventoryRedFluidAmount >= 100:
-                bottledRedPotionCount += 1
-                inventoryRedFluidAmount -= 100
-
-            # Update the global inventory with the new amount of red fluid.
-            # Note: We will update the bottle inventory in the /deliver endpoint.
-            conn.execute(
-                 sqlalchemy.text(
-                      f"UPDATE global_inventory SET num_red_ml = {inventoryRedFluidAmount}"
-                )
-            )
+            bottledRedPotionCount  = inventoryRedFluidAmount // 100
     
     return [
             {

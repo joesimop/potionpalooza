@@ -26,9 +26,6 @@ def get_catalog():
         firstRow = result.first()
         inventoryRedPotionCount = firstRow[0]
 
-
-            
-    
     return [
             {
                 "sku": "RED_POTION_0",
