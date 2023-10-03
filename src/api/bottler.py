@@ -30,7 +30,7 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
                 # Update the number of red potions and fluid in inventory
                 conn.execute(
                      sqlalchemy.text(
-                          f"UPDATE global_inventory SET num_red_potions = num_red_potions + {potion.quantity} \
+                          f"UPDATE global_inventory SET num_red_potions = num_red_potions + {potion.quantity}, \
                                                         num_red_ml = num_red_ml - {potion.quantity * 100}"
                     )
                 )
