@@ -28,37 +28,82 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     """ """
     print(wholesale_catalog)
 
+    returnList = []
+
+    # I'm gonna leave the logic mostly in for loops for the potion types because I don't think we
+    # will have that many types, if we end up getting more, we should refactor to more db calls 
+    # to limit the amount of looping.
     with db.engine.begin() as conn:
 
-        # Gets the number of red potions and gold in inventory
+        # Gets gold in inventory
         result = conn.execute(
             sqlalchemy.text(
-                "SELECT num_red_potions, gold FROM global_inventory"
+                "SELECT gold FROM global_inventory"
             )
         )
 
-        #Extract data from the first row
-        firstRow = result.first()
-        inventoryRedPotionCount = firstRow[0]
-        gold = firstRow[1]
+        runningGoldTotal = result.first()[0] 
 
-        # Qualifications to buy a barrel:
-        sufficientGoldToBuyBarrel = (gold > wholesale_catalog[0].price)
-        needMoreRedPotions = (inventoryRedPotionCount < 10)
+        # Gets all the potion stock from potion_inventory
+        result = conn.execute(
+            sqlalchemy.text(
+                "SELECT recipe, potion_count, ml_amount FROM potion_inventory"
+            )
+        )
 
-        if (needMoreRedPotions and sufficientGoldToBuyBarrel):
+        potionInventory = result.fetchall()
+        potionRecipies = [row[0] for row in potionInventory]
+        
 
-            #Buy a barrel of red potion
-            return [
-                        {
-                            "sku": "SMALL_RED_BARREL",
-                            "quantity": 1,
-                        }
-                    ]
-        else:
+        for barrel in wholesale_catalog:
 
-            #Don't buy anything
-            return [{}]
+            # Setup poiton specific properties
+            inventoryPotionQuantity = 0
+            inventoryPotionMlAmount = 0
+
+            # If we do not have the barrel in our inventory, add it.
+            # TODO: This is not the most efficient way to do this, look for more unique specifiers later.
+            if barrel.potion_type not in potionRecipies:
+                    
+                    # Insert the barrel into our inventory
+                    conn.execute(
+                        sqlalchemy.text(
+                            f"INSERT INTO potion_inventory (sku, recipe, potion_count, ml_amount, price_per_potion, product_name) VALUES \
+                            (\'{barrel.sku}\', ARRAY{barrel.potion_type}, 0, 0, 0, \'CREATE_PRODUCT_NAME\')"
+                        )
+                    )
+
+            # Otherwise, get details from inventory
+            else:
+                for row in potionInventory:
+                    if row[0] == barrel.potion_type:
+                        inventoryPotionQuantity = row[1]
+                        inventoryPotionMlAmount = row[2]
+                        break
+            """
+            At this point, the potion specific properties should be set up, new or old,
+            and we can start the logic for the purchase plan.
+            """
+
+            # We will buy at least one of each barrel if possible.
+            if runningGoldTotal >= barrel.price:
+                returnList.append(
+                    {
+                        "sku": barrel.sku,
+                        "quantity": 1,
+                    }
+                )
+                runningGoldTotal -= barrel.price
+                continue
+
+
+        """
+        We have now bought as much of at least one of each barrel as we can.
+        We can now buy more of the barrels we want most, which, right now, is just blue cause its my favorite color.
+        """
+
+
+        return returnList
     
 # Passes what was actually delivered based off what I ordered.
 # Adds newly gained ml of potion to my inventory.
