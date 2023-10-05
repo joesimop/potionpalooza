@@ -109,34 +109,39 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
 # Adds newly gained ml of potion to my inventory.
 @router.post("/deliver")
 def post_deliver_barrels(barrels_delivered: list[Barrel]):
-    """ """
+    """ 
+    Note: We will have enough gold to buy all the barrels because we ensured in /plan.
+    """
+
+    totalGoldSpent = 0
+    caseStatements = ""
+    potionTypeList = ""
 
     with db.engine.begin() as conn:
 
         for barrel in barrels_delivered:
 
-            # Gets the amount of red fluid and gold in inventory
-            result = conn.execute(
-                sqlalchemy.text(
-                    "SELECT num_red_ml, gold FROM global_inventory"
-                )
+            totalMlBought = barrel.quantity * barrel.ml_per_barrel
+            totalGoldSpent += barrel.price * barrel.quantity
+            caseStatements += f"when recipe = ARRAY{barrel.potion_type} then {totalMlBought} "
+        
+
+        # Push the new inventory amounts to the database
+        # Note: We are iterating through the whole table in the query
+        # Also, don't love the case statements, if time, look into another way
+        conn.execute(
+            sqlalchemy.text(
+                f"UPDATE potion_inventory SET ml_amount = (case {caseStatements} end) \
+                    WHERE recipe IN (SELECT recipe FROM potion_inventory)"
             )
+        )
 
-            #Extract data from the first row
-            firstRow = result.first()
-            inventoryRedFluidAmount = firstRow[0]
-            inventoryGoldAmount = firstRow[1]
-
-            # Update the global inventory with the new amount of red fluid and gold.
-            inventoryRedFluidAmount += barrel.quantity * barrel.ml_per_barrel
-            inventoryGoldAmount -= barrel.quantity * barrel.price
-
-            # Push the new inventory amounts to the database
-            conn.execute(
-                sqlalchemy.text(
-                    f"UPDATE global_inventory SET num_red_ml = {inventoryRedFluidAmount}, gold = {inventoryGoldAmount}"
-                )
+        # Update gold amount
+        result = conn.execute(
+            sqlalchemy.text(
+                f"UPDATE global_inventory SET gold = gold - {totalGoldSpent}"
             )
+        )
 
 
     return "OK\n"
