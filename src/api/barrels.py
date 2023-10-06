@@ -123,7 +123,7 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
 
             totalMlBought = barrel.quantity * barrel.ml_per_barrel
             totalGoldSpent += barrel.price * barrel.quantity
-            caseStatements += f"when recipe = ARRAY{barrel.potion_type} then {totalMlBought} "
+            caseStatements += f"when recipe = ARRAY{barrel.potion_type} then {totalMlBought}"
         
 
         # Push the new inventory amounts to the database
@@ -131,7 +131,7 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
         # Also, don't love the case statements, if time, look into another way
         conn.execute(
             sqlalchemy.text(
-                f"UPDATE potion_inventory SET ml_amount = (case {caseStatements} end) \
+                f"UPDATE potion_inventory SET ml_amount = ml_amount + (case {caseStatements} ELSE 0 end) \
                     WHERE recipe IN (SELECT recipe FROM potion_inventory)"
             )
         )
