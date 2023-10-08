@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException
 from pydantic import BaseModel
 from src.api import auth
 
@@ -68,7 +68,7 @@ def get_cart(cart_id: int):
     
     # Return nothing if there is no cart with a matching ID
     if cart is None:
-        return {}
+        raise HTTPException(status_code=404, detail="Cart not found")
     
     return cart
 
@@ -86,7 +86,7 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
     
     # If there is no cart with a matching ID
     if cart is None:
-        return "404 Cart not found"
+        raise HTTPException(status_code=404, detail="Cart not found")
     
     # If the sku already exists in the cart, update the quantity
     for item in cart.items:

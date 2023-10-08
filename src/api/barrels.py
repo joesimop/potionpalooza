@@ -28,6 +28,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     """ """
     print(wholesale_catalog)
 
+
     returnList = []
 
     # I'm gonna leave the logic mostly in for loops for the potion types because I don't think we
@@ -44,10 +45,10 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
 
         runningGoldTotal = result.first()[0] 
 
-        # Gets all the potion stock from potion_inventory
+        # Gets all the potion stock from barrel_inventory
         result = conn.execute(
             sqlalchemy.text(
-                "SELECT recipe, potion_count, ml_amount FROM potion_inventory"
+                "SELECT recipe, ml_amount FROM barrel_inventory"
             )
         )
 
@@ -58,7 +59,6 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         for barrel in wholesale_catalog:
 
             # Setup poiton specific properties
-            inventoryPotionQuantity = 0
             inventoryPotionMlAmount = 0
 
             # If we do not have the barrel in our inventory, add it.
@@ -68,8 +68,8 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
                     # Insert the barrel into our inventory
                     conn.execute(
                         sqlalchemy.text(
-                            f"INSERT INTO potion_inventory (sku, recipe, potion_count, ml_amount, price_per_potion, product_name) VALUES \
-                            (\'{barrel.sku}\', ARRAY{barrel.potion_type}, 0, 0, 0, \'CREATE_PRODUCT_NAME\')"
+                            f"INSERT INTO barrel_inventory (recipe, ml_amount) VALUES \
+                            (ARRAY{barrel.potion_type}, 0)"
                         )
                     )
 
@@ -77,8 +77,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
             else:
                 for row in potionInventory:
                     if row[0] == barrel.potion_type:
-                        inventoryPotionQuantity = row[1]
-                        inventoryPotionMlAmount = row[2]
+                        inventoryPotionMlAmount = row[1]
                         break
             """
             At this point, the potion specific properties should be set up, new or old,
@@ -123,7 +122,7 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
 
             totalMlBought = barrel.quantity * barrel.ml_per_barrel
             totalGoldSpent += barrel.price * barrel.quantity
-            caseStatements += f"when recipe = ARRAY{barrel.potion_type} then {totalMlBought}"
+            caseStatements += f"when recipe = ARRAY{barrel.potion_type} then {totalMlBought} "
         
 
         # Push the new inventory amounts to the database
@@ -131,8 +130,8 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
         # Also, don't love the case statements, if time, look into another way
         conn.execute(
             sqlalchemy.text(
-                f"UPDATE potion_inventory SET ml_amount = ml_amount + (case {caseStatements} ELSE 0 end) \
-                    WHERE recipe IN (SELECT recipe FROM potion_inventory)"
+                f"UPDATE barrel_inventory SET ml_amount = ml_amount + (case {caseStatements} ELSE 0 end) \
+                    WHERE recipe IN (SELECT recipe FROM barrel_inventory)"
             )
         )
 
