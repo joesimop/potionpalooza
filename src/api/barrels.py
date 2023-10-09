@@ -73,6 +73,10 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
                         )
                     )
 
+                    # Incase we buy barrels of two different sizes of a potion type
+                    # we haven't seen before
+                    potionRecipies.append(barrel.potion_type)
+
             # Otherwise, get details from inventory
             else:
                 for row in potionInventory:
