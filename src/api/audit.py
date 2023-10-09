@@ -43,8 +43,6 @@ def get_inventory():
         #Sum up all the ml of fluid
         fluidAmount = sum([row[0] for row in result.fetchall()])
 
-
-
     return {"number_of_potions": potionCount, 
             "ml_in_barrels": fluidAmount, 
             "gold": gold}

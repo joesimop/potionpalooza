@@ -20,6 +20,19 @@ class Barrel(BaseModel):
 
     quantity: int
 
+def GetNameFromRecipe(recipe):
+    """Returns the name of the potion from the recipe."""
+    if recipe == [1, 0 , 0, 0]:
+        return "red"
+    elif recipe == [0, 1, 0, 0]:
+        return "green"
+    elif recipe == [0, 0 , 1, 0]:
+        return "blue"
+    elif recipe == [0, 0, 0, 1]:
+        return "dark"
+    return None
+    
+
 # Provides a list of barrels to purchase, and I return what I want to buy.
 # The /deliver endpoint is called after I return my purchase plan.
 # Gets called once a day
@@ -48,12 +61,12 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         # Gets all the potion stock from barrel_inventory
         result = conn.execute(
             sqlalchemy.text(
-                "SELECT recipe, ml_amount FROM barrel_inventory"
+                "SELECT fluid_type, ml_amount FROM barrel_inventory"
             )
         )
 
         potionInventory = result.fetchall()
-        potionRecipies = [row[0] for row in potionInventory]
+        potionTypes = [row[0] for row in potionInventory]
         
 
         for barrel in wholesale_catalog:
@@ -61,28 +74,31 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
             # Setup poiton specific properties
             inventoryPotionMlAmount = 0
 
-            # If we do not have the barrel in our inventory, add it.
-            # TODO: This is not the most efficient way to do this, look for more unique specifiers later.
-            if barrel.potion_type not in potionRecipies:
+            """Was here in case we encountered potions we hadn't seen before, keep just in case."""
+            # # If we do not have the barrel in our inventory, add it.
+            # # TODO: This is not the most efficient way to do this, look for more unique specifiers later.
+            # if barrel.potion_type not in potionTypes:
                     
-                    # Insert the barrel into our inventory
-                    conn.execute(
-                        sqlalchemy.text(
-                            f"INSERT INTO barrel_inventory (recipe, ml_amount) VALUES \
-                            (ARRAY{barrel.potion_type}, 0)"
-                        )
-                    )
+            #         # Insert the barrel into our inventory
+            #         conn.execute(
+            #             sqlalchemy.text(
+            #                 f"INSERT INTO barrel_inventory (recipe, ml_amount) VALUES \
+            #                 (ARRAY{barrel.potion_type}, 0)"
+            #             )
+            #         )
 
-                    # Incase we buy barrels of two different sizes of a potion type
-                    # we haven't seen before
-                    potionRecipies.append(barrel.potion_type)
+            #         # Incase we buy barrels of two different sizes of a potion type
+            #         # we haven't seen before
+            #         potionRecipies.append(barrel.potion_type)
 
             # Otherwise, get details from inventory
-            else:
-                for row in potionInventory:
-                    if row[0] == barrel.potion_type:
-                        inventoryPotionMlAmount = row[1]
-                        break
+            #else:
+            for row in potionInventory:
+                potionName = row[0]
+                barrelPotionName = GetNameFromRecipe(barrel.potion_type)
+                if potionName == barrelPotionName:
+                    inventoryPotionMlAmount = row[1]
+                    break
             """
             At this point, the potion specific properties should be set up, new or old,
             and we can start the logic for the purchase plan.
@@ -118,15 +134,26 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
 
     totalGoldSpent = 0
     caseStatements = ""
-    potionTypeList = ""
+    totalFluidsBought = [0,0,0,0]
 
     with db.engine.begin() as conn:
 
+        # Calculate how much fluid we bought and how much gold we spent
         for barrel in barrels_delivered:
 
             totalMlBought = barrel.quantity * barrel.ml_per_barrel
             totalGoldSpent += barrel.price * barrel.quantity
-            caseStatements += f"when recipe = ARRAY{barrel.potion_type} then {totalMlBought} "
+
+            # Calculate how much of each fluid we bought in this barrel
+            for i in range(len(barrel.potion_type)):
+                totalFluidsBought[i] += barrel.potion_type[i] * totalMlBought
+            
+
+        # Setup case statements for the update query
+        caseStatements += f"when fluid_type = \'red\' then {totalFluidsBought[0]} "
+        caseStatements += f"when fluid_type = \'green\' then {totalFluidsBought[1]} "
+        caseStatements += f"when fluid_type = \'blue\' then {totalFluidsBought[2]} "
+        caseStatements += f"when fluid_type = \'dark\' then {totalFluidsBought[3]} "
         
 
         # Push the new inventory amounts to the database
@@ -135,7 +162,7 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
         conn.execute(
             sqlalchemy.text(
                 f"UPDATE barrel_inventory SET ml_amount = ml_amount + (case {caseStatements} ELSE 0 end) \
-                    WHERE recipe IN (SELECT recipe FROM barrel_inventory)"
+                    WHERE fluid_type IN (SELECT fluid_type FROM barrel_inventory)"
             )
         )
 

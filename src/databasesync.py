@@ -1,6 +1,15 @@
 import sqlalchemy
 from src import database as db
 
+
+"""
+THIS FILE IS MORE OR LESS DEPRECATED
+It would be worth getting the database id and fluid type from barrel_inventory to make sure we are synced
+
+
+"""
+
+
 # We need to generate the enums from the already existing database so we are synced
 potionNameList = ["Elixir of Healing", "Dragon's Breath Tonic", "Witch's Brew", "Basilisk Bane Elixir", "Love Potion No. 9", "Potion of Invisibility", "Phoenix Feather Elixir", "Trollbane Tincture", "Potion of Eternal Youth", "Gorgon Gaze Antidote", "Moonlit Serenade Elixir", "Manticore Venom Remedy", "Potion of Strength", "Feywild Essence Elixir", "Potion of Clairvoyance", "Nightshade Elixir", "Chimera's Courage Brew", "Druid's Dream Potion", "Spectral Sight Serum", "Potion of Luck"]
 usableNameList = potionNameList.copy()

@@ -18,6 +18,17 @@ class PotionInventory(BaseModel):
     quantity: int
 
 
+def GetPotionRecipeFromName(name):
+    """Returns the recipe of the potion from the name."""
+    if name == "red":
+        return [100, 0 , 0, 0]
+    elif name == "green":
+        return [0, 100, 0, 0]
+    elif name == "blue":
+        return [0, 0 , 100, 0]
+    elif name == "dark":
+        return [0, 0, 0, 100]
+
 # Gets called 4 times a day
 @router.post("/plan")
 def get_bottle_plan():
@@ -39,20 +50,20 @@ def get_bottle_plan():
             # Get the amount of recipes from the inventory.
             result = conn.execute(
                  sqlalchemy.text(
-                      "SELECT recipe, ml_amount FROM barrel_inventory"
+                      "SELECT fluid_type, ml_amount FROM barrel_inventory"
                 )
             )
 
             # Extract data and setup mixing conversion variables.
-            potionRecipes = result.fetchall()
+            potionFluids = result.fetchall()
             returnList = []
 
             # For each potion recipe, determine how many potions we can make.
             # If we can add at least one, add it to the return list.
-            for potion in potionRecipes:
+            for fluid in potionFluids:
 
-                potionRecipe = potion[0]
-                fluidAmount = potion[1]
+                potionRecipe = fluid[0]
+                fluidAmount = fluid[1]
 
                 # Get the number of potions we can make from the fluid amount.
                 numberOfPotions = fluidAmount // 100
@@ -60,7 +71,7 @@ def get_bottle_plan():
                 if numberOfPotions > 0:
                     returnList.append(
                         {
-                            "potion_type": [x * 100 for x in potionRecipe],
+                            "potion_type": GetPotionRecipeFromName(potionRecipe),
                             "quantity": numberOfPotions,
                         }
                     )
@@ -76,6 +87,7 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
          
         potionCaseStatements = ""
         barrelCaseStatements = ""
+        totalFluidUsed = [0,0,0,0]
          
         # For each potion, calculate how much fluid we bottles,
         # add a case statement to the update query.
@@ -93,26 +105,25 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
                 potionName = usableNameList.pop()
                 conn.execute(
                     sqlalchemy.text(
-                        f"INSERT INTO potion_inventory (name, recipe, price_per_potion, count) VALUES \
-                        (\'{potionName}\', ARRAY{potionRecipe}, 300, 0)"
+                        f"INSERT INTO potion_inventory (name, recipe, count) VALUES \
+                        (\'{potionName}\', ARRAY{potionRecipe}, 0)"
                     )
                 )
                 potionNameRecipeAssociations[potionName] = potionRecipe
-                 
 
-            # This logic is hard-coded. How we will implement this generally will depend on 
-            # how we mix potions and how we track what fluid we take from which barrels
-            # HARDCODED LOGIC IN THIS BLOCK
-            bottledFluid = potion.quantity * 100
-            if potionRecipe == [100,0,0,0]:
-                 sourceBarrel = [1,0,0,0]
-            elif potionRecipe == [0,100,0,0]:
-                 sourceBarrel = [0,1,0,0]
-            elif potionRecipe == [0,0,100,0]:
-                 sourceBarrel = [0,0,1,0]
-
+            #Collect fluid used
+            for i in range(len(potionRecipe)):
+                totalFluidUsed[i] += potionRecipe[i] * potion.quantity
+                
+            # Potion Specific Case Statemnet
             potionCaseStatements += f"when recipe = ARRAY{potionRecipe} then {potion.quantity} "
-            barrelCaseStatements += f"when recipe = ARRAY{sourceBarrel} then {bottledFluid} "
+
+
+        #Barel Amount Case Statements
+        barrelCaseStatements += f"when fluid_type = \'red\' then {totalFluidUsed[0]} "
+        barrelCaseStatements += f"when fluid_type = \'green\' then {totalFluidUsed[1]} "
+        barrelCaseStatements += f"when fluid_type = \'blue\' then {totalFluidUsed[2]} "
+        barrelCaseStatements += f"when fluid_type = \'dark\' then {totalFluidUsed[3]} "
 
 
         # Push the new potion amounts to the database
@@ -127,7 +138,7 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
         conn.execute(
             sqlalchemy.text(
                 f"UPDATE barrel_inventory SET ml_amount = ml_amount - (case {barrelCaseStatements} ELSE 0 end) \
-                    WHERE recipe IN (SELECT recipe FROM barrel_inventory)"
+                    WHERE fluid_type IN (SELECT fluid_type FROM barrel_inventory)"
             )
         )
 
