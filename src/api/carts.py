@@ -7,27 +7,17 @@ import sqlalchemy
 from sqlalchemy import insert
 from src import database as db
 
-customerCarts = {}
-cartCounter = 0
-
 router = APIRouter(
     prefix="/carts",
     tags=["cart"],
     dependencies=[Depends(auth.get_api_key)],
 )
 
-
 """
 SCHEMAS -------------------------------------
 """
 class NewCart(BaseModel):
     customer: str
-
-class PotionSale(BaseModel):
-    sku: str
-    quantity: int
-    price_per: int
-    price_total: int
 
 class Cart(BaseModel):
     id: int

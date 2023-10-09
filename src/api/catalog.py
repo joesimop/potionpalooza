@@ -12,26 +12,35 @@ def get_catalog():
     Each unique item combination must have only a single price.
     """
 
+    catalog = []
+
     # Can return a max of 20 items.
     with db.engine.begin() as conn:
 
         # Get the number of possible red potions we can sell from inventory
         result = conn.execute(
             sqlalchemy.text(
-                "SELECT num_red_potions FROM global_inventory"
+                "SELECT name, count, recipe FROM potion_inventory"
             )
         )
 
-        # Get number of red potions
-        firstRow = result.first()
-        inventoryRedPotionCount = firstRow[0]
+        potionInventory = result.fetchall()
+        
+        for potion in potionInventory:
 
-    return [
-            {
-                "sku": "RED_POTION_0",
-                "name": "Royal Red Potion",
-                "quantity": inventoryRedPotionCount,
-                "price": 150,
-                "potion_type": [100, 0, 0, 0],
-            }
-        ]
+            name = potion[0]
+            sku = potion[0].replace(" ", "_").upper()
+            quantity = potion[1]
+            recipe = potion[2]
+
+            catalog.append(
+                {
+                    "sku": name,
+                    "name": name,
+                    "quantity": quantity,
+                    "price": 250,
+                    "potion_type": recipe,
+                }
+            )
+
+    return catalog
