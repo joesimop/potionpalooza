@@ -105,7 +105,9 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
             """
 
             # We will buy at least one of each barrel if possible.
-            if runningGoldTotal >= barrel.price:
+            # Right now buying the barrels if we don't have enough to bottle at least two.
+            # Otherwise we want to save money to buy other barrels.
+            if runningGoldTotal >= barrel.price and inventoryPotionMlAmount < 200:
                 returnList.append(
                     {
                         "sku": barrel.sku,
