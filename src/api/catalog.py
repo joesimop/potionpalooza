@@ -33,14 +33,15 @@ def get_catalog():
             quantity = potion[1]
             recipe = potion[2]
 
-            catalog.append(
-                {
-                    "sku": name,
-                    "name": sku,
-                    "quantity": quantity,
-                    "price": 250,
-                    "potion_type": recipe,
-                }
-            )
+            if quantity > 0:
+                catalog.append(
+                    {
+                        "sku": name,
+                        "name": sku,
+                        "quantity": quantity,
+                        "price": 200,
+                        "potion_type": recipe,
+                    }
+                )
 
     return catalog
