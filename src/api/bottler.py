@@ -116,10 +116,10 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
                 totalFluidUsed[i] += potionRecipe[i] * potion.quantity
                 
             # Potion Specific Case Statemnet
-            potionCaseStatements += f"when recipe = ARRAY{potionRecipe} then {potion.quantity} "
+            potionCaseStatements += f"when recipe = ARRAY{potionRecipe}::smallint[] then {potion.quantity} "
 
 
-        #Barel Amount Case Statements
+        #Barrel Amount Case Statements
         barrelCaseStatements += f"when fluid_type = \'red\' then {totalFluidUsed[0]} "
         barrelCaseStatements += f"when fluid_type = \'green\' then {totalFluidUsed[1]} "
         barrelCaseStatements += f"when fluid_type = \'blue\' then {totalFluidUsed[2]} "
