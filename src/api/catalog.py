@@ -28,16 +28,16 @@ def get_catalog():
         
         for potion in potionInventory:
 
-            name = potion[0]
-            sku = potion[0].replace(" ", "_").upper()
+            sku = potion[0]
+            name = potion[0].replace("_", " ").lower()
             quantity = potion[1]
             recipe = potion[2]
 
             if quantity > 0:
                 catalog.append(
                     {
-                        "sku": name,
-                        "name": sku,
+                        "sku": sku,
+                        "name": name,
                         "quantity": quantity,
                         "price": 200,
                         "potion_type": recipe,
