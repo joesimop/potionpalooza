@@ -104,10 +104,18 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
             and we can start the logic for the purchase plan.
             """
 
+            result = conn.execute(
+                sqlalchemy.text(
+                    f"SELECT count FROM potion_inventory WHERE recipe = \'{barrel.potion_type}\'"
+                )
+            )
+
+            potionCount = result.first()[0]
+
             # We will buy at least one of each barrel if possible.
-            # Right now buying the barrels if we don't have enough to bottle at least two.
+            # Right now buying the barrels if we don't have any potions of that type.
             # Otherwise we want to save money to buy other barrels.
-            if runningGoldTotal >= barrel.price and inventoryPotionMlAmount < 200:
+            if runningGoldTotal >= barrel.price and potionCount == 0:
                 returnList.append(
                     {
                         "sku": barrel.sku,

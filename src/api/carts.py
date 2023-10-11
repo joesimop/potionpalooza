@@ -160,7 +160,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
                 #Variables for readability
                 name = item[0]
                 quantity = item[1]
-                goldTotal += quantity * 200
+                goldTotal += quantity * 50
 
                 # Update potion in potion_inventory
                 conn.execute(
