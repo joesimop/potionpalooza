@@ -104,9 +104,11 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
             and we can start the logic for the purchase plan.
             """
 
+            associatePotionRecipe = [ x * 100 for x in barrel.potion_type ]
+
             result = conn.execute(
                 sqlalchemy.text(
-                    f"SELECT count FROM potion_inventory WHERE recipe = \'{barrel.potion_type}\'"
+                    f"SELECT count FROM potion_inventory WHERE recipe = ARRAY{associatePotionRecipe}::smallint[]"
                 )
             )
 
