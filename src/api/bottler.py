@@ -102,14 +102,14 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
 
             #If this is a new potion, insert it into the table with a new name!
             if potionRecipe not in potionNameRecipeAssociations.values():
-                potionName = usableNameList.pop()
+                potionSku = usableNameList.pop().replace(" ", "_").upper()
                 conn.execute(
                     sqlalchemy.text(
-                        f"INSERT INTO potion_inventory (name, recipe, count) VALUES \
-                        (\'{potionName}\', ARRAY{potionRecipe}, 0)"
+                        f"INSERT INTO potion_inventory (sku, recipe, count) VALUES \
+                        (\'{potionSku}\', ARRAY{potionRecipe}, 0)"
                     )
                 )
-                potionNameRecipeAssociations[potionName] = potionRecipe
+                potionNameRecipeAssociations[potionSku] = potionRecipe
 
             #Collect fluid used
             for i in range(len(potionRecipe)):

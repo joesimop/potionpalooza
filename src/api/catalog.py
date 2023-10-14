@@ -20,7 +20,7 @@ def get_catalog():
         # Get the number of possible red potions we can sell from inventory
         result = conn.execute(
             sqlalchemy.text(
-                "SELECT name, count, recipe FROM potion_inventory"
+                "SELECT sku, count, recipe FROM potion_inventory"
             )
         )
 
@@ -28,6 +28,7 @@ def get_catalog():
         
         for potion in potionInventory:
 
+            # Note: Name is literally not used for anything
             sku = potion[0]
             name = potion[0].replace("_", " ").lower()
             quantity = potion[1]

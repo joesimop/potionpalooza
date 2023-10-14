@@ -158,14 +158,14 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             for item in checkoutItems:
 
                 #Variables for readability
-                name = item[0]
+                sku = item[0]
                 quantity = item[1]
                 goldTotal += quantity * 50
 
                 # Update potion in potion_inventory
                 conn.execute(
                     sqlalchemy.text(
-                        f"UPDATE potion_inventory SET count = count - {quantity} WHERE name = \'{name}\'"
+                        f"UPDATE potion_inventory SET count = count - {quantity} WHERE sku = \'{sku}\'"
                     )
                 )
 

@@ -20,7 +20,7 @@ with db.engine.begin() as conn:
     # Get existing potions we have sold
     result = conn.execute(
         sqlalchemy.text(
-            f"SELECT recipe, name FROM potion_inventory"
+            f"SELECT recipe, sku FROM potion_inventory"
         )
     )
 
