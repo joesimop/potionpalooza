@@ -4,8 +4,10 @@ from src.api import auth
 
 
 import sqlalchemy
-from sqlalchemy import insert
+from sqlalchemy.sql.expression import case
 from src import database as db
+from src.schemas import carts, cart_items, potion_inventory, global_inventory
+
 
 router = APIRouter(
     prefix="/carts",
@@ -32,12 +34,12 @@ def create_cart(new_cart: NewCart):
 
     with db.engine.begin() as conn:
         result = conn.execute(
-            sqlalchemy.text(
-                f"INSERT INTO carts (customer) VALUES ('{new_cart.customer}') RETURNING id"
-            )
+            sqlalchemy
+            .insert(carts)
+            .values(customer=new_cart.customer)
         )
 
-        primaryKey = result.first()[0]
+        primaryKey = result.inserted_primary_key
 
     # Return the cart ID
     return {
@@ -51,10 +53,11 @@ def get_cart(cart_id: int):
 
     with db.engine.begin() as conn:
         result = conn.execute(
-            sqlalchemy.text(
-                f"SELECT customer FROM carts WHERE id = {cart_id}"
-            )
+            sqlalchemy
+            .select(carts.c.customer)
+            .where(carts.c.id == cart_id)
         )
+
         cart = result.first()
     
     # Return nothing if there is no cart with a matching ID
@@ -74,44 +77,42 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
      
     # Get the cart with the matching ID, error if it doesn't exist
     with db.engine.begin() as conn:
-
-        # Get the cart with the matching ID
-        result = conn.execute(
-            sqlalchemy.text(
-                f"SELECT * FROM carts WHERE id = {cart_id}"
-            )
-        )
-        cart = result.first()
-    
-        # If there is no cart with a matching ID
-        if cart is None:
-            raise HTTPException(status_code=404, detail="Cart not found")
-    
-
-        #Get all the items in cart_items with the cart_id
-        result = conn.execute(
-            sqlalchemy.text(
-                f"SELECT id FROM cart_items WHERE cart_id = {cart_id} and name = \'{item_sku}\'"
-            )
-        )
-        cart_item_id = result.first()
-
-
-        # If the item is already in the cart, update the quantity
-        if cart_item_id is not None:
-            conn.execute(
-                sqlalchemy.text(
-                    f"UPDATE cart_items SET quantity = {cart_item.quantity} WHERE id = {cart_item_id[0]}"
-                )
-            )
         
-        # Otherwise, add a new item to the cart
-        else:
-            conn.execute(
+        #Ensure Cart Exists
+        get_cart(cart_id)
+       
+        # Try to update the quantity of the item in the cart
+        result = conn.execute(
+            sqlalchemy
+            .update(cart_items)
+            .where(cart_items.c.cart_id == cart_id,
+                   cart_items.c.name == item_sku)
+            .values(quantity=cart_item.quantity)
+            .returning(cart_items.c.id)
+        ) 
+
+        cartItemUpdated = result.first()
+        
+        #If we didn't update anything, insert a new item into the cart
+        if cartItemUpdated is None:
+
+            # result = conn.execute(
+            #     sqlalchemy
+            #     .insert(cart_items)
+            #     .from_select([":cart_id", ":item_sku", ":quantity", "id"], 
+            #                   potion_inventory.select().where(potion_inventory.c.sku == item_sku))
+            #     .values(cart_id=cart_id, item_sku=item_sku, quantity=cart_item.quantity)
+                              
+            # )
+
+            # Don't know how to do this with sqlalchemy, so I'm using raw SQL
+            result = conn.execute(
                 sqlalchemy.text(
-                    f"INSERT INTO cart_items (cart_id, name, quantity) \
-                        VALUES ({cart_id}, \'{item_sku}\', {cart_item.quantity})"
-                )
+                    "INSERT INTO cart_items (cart_id, name, quantity, potion_id) \
+                        SELECT :cart_id, :item_sku, :quantity, id \
+                        FROM potion_inventory WHERE sku = :item_sku "
+                ),
+                [{"cart_id": cart_id, "item_sku": item_sku, "quantity": cart_item.quantity}]
             )
 
     return "OK"
@@ -127,24 +128,14 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
     # Get the cart with the matching ID, error if it doesn't exist
     with db.engine.begin() as conn:
 
-        # Get the cart with the matching ID
-        result = conn.execute(
-            sqlalchemy.text(
-                f"SELECT * FROM carts WHERE id = {cart_id}"
-            )
-        )
-        cart = result.first()
-    
-        # If there is no cart with a matching ID
-        if cart is None:
-            raise HTTPException(status_code=404, detail="Cart not found")
-        
+        # Ensure Cart Exists
+        get_cart(cart_id)
 
-        # Get the items in the cart
+        # Get the items in the cart, not effecient, but good error handling
         result = conn.execute(
-            sqlalchemy.text(
-                f"SELECT name, quantity FROM cart_items WHERE cart_id = {cart_id}"
-            )
+            sqlalchemy
+            .select(cart_items.c.name, cart_items.c.quantity)
+            .where(cart_items.c.cart_id == cart_id)
         )
 
         checkoutItems = result.fetchall()
@@ -152,42 +143,40 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
         if checkoutItems is None:
             raise HTTPException(status_code=404, detail="Cart is empty")
     
-        else:
             
-            goldTotal = 0
-            for item in checkoutItems:
-
-                #Variables for readability
-                sku = item[0]
-                quantity = item[1]
-                goldTotal += quantity * 50
-
-                # Update potion in potion_inventory
-                conn.execute(
-                    sqlalchemy.text(
-                        f"UPDATE potion_inventory SET count = count - {quantity} WHERE sku = \'{sku}\'"
-                    )
-                )
+        # Add up gold total
+        goldTotal = 0
+        for item in checkoutItems:
+            quantity = item[1]
+            goldTotal += quantity * 50
 
 
-            # Update gold in global_inventory
-            conn.execute(
-                sqlalchemy.text(
-                    f"UPDATE global_inventory SET gold = gold + {goldTotal}"
+        # Update potion in potion_inventory
+        # Note: item[0] is the sku, item[1] is the quantity
+        conn.execute(
+            sqlalchemy
+            .update(potion_inventory)
+            .values(count = potion_inventory.c.count - 
+                    case(
+                        {item[0]: item[1] for item in checkoutItems},
+                        value = potion_inventory.c.sku,
+                        else_ = 0
                 )
             )
+        )
 
-            # Delete the cart and cart items
-            conn.execute(
-                sqlalchemy.text(
-                    f"DELETE FROM cart_items WHERE cart_id = {cart_id}"
-                )
-            )
+        # Update gold in global_inventory
+        conn.execute(
+            sqlalchemy
+            .update(global_inventory)
+            .values(gold = global_inventory.c.gold + goldTotal)
+        )
 
-            conn.execute(
-                sqlalchemy.text(
-                    f"DELETE FROM carts WHERE id = {cart_id}"
-                )
-            )
+        # Cascade deletes cart_items
+        conn.execute(
+            sqlalchemy
+            .delete(carts)
+            .where(carts.c.id == cart_id)
+        )
 
-            return "OK"
+        return "OK"

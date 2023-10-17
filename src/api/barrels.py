@@ -4,6 +4,8 @@ from src.api import auth
 
 import sqlalchemy
 from src import database as db
+from src.schemas import barrel_inventory, global_inventory
+from src.helpers import GetBarrelType
 
 router = APIRouter(
     prefix="/barrels",
@@ -20,18 +22,7 @@ class Barrel(BaseModel):
 
     quantity: int
 
-def GetNameFromRecipe(recipe):
-    """Returns the name of the potion from the recipe."""
-    if recipe == [1, 0 , 0, 0]:
-        return "red"
-    elif recipe == [0, 1, 0, 0]:
-        return "green"
-    elif recipe == [0, 0 , 1, 0]:
-        return "blue"
-    elif recipe == [0, 0, 0, 1]:
-        return "dark"
-    return None
-    
+
 
 # Provides a list of barrels to purchase, and I return what I want to buy.
 # The /deliver endpoint is called after I return my purchase plan.
@@ -51,88 +42,60 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
 
         # Gets gold in inventory
         result = conn.execute(
-            sqlalchemy.text(
-                "SELECT gold FROM global_inventory"
-            )
+            sqlalchemy
+            .select(global_inventory.c.gold)
         )
 
         runningGoldTotal = result.first()[0] 
 
         # Gets all the potion stock from barrel_inventory
         result = conn.execute(
-            sqlalchemy.text(
-                "SELECT fluid_type, ml_amount FROM barrel_inventory"
-            )
+            sqlalchemy
+            .select(barrel_inventory.c.recipe, barrel_inventory.c.ml_amount)
         )
 
         potionInventory = result.fetchall()
-        potionTypes = [row[0] for row in potionInventory]
-        
+        totalMlInInventory = sum([row[1] for row in potionInventory])
 
-        for barrel in wholesale_catalog:
+        #(Percentage of ml for type of total ml, Recipe)
+        if totalMlInInventory > 0:
+            percentageMlAmounts = [(potionData[1] / totalMlInInventory, potionData[0]) for potionData in potionInventory]
+            percentageMlAmounts.sort(key=lambda x: x[0], reverse=False)
+        else:
+            percentageMlAmounts = [(0, [1,0,0,0]), (0, [0,1,0,0]), (0, [0,0,1,0]), (0, [0,0,0,1])]
 
-            # Setup poiton specific properties
-            inventoryPotionMlAmount = 0
+        #Sorted by percentage of ml
 
-            """Was here in case we encountered potions we hadn't seen before, keep just in case."""
-            # # If we do not have the barrel in our inventory, add it.
-            # # TODO: This is not the most efficient way to do this, look for more unique specifiers later.
-            # if barrel.potion_type not in potionTypes:
-                    
-            #         # Insert the barrel into our inventory
-            #         conn.execute(
-            #             sqlalchemy.text(
-            #                 f"INSERT INTO barrel_inventory (recipe, ml_amount) VALUES \
-            #                 (ARRAY{barrel.potion_type}, 0)"
-            #             )
-            #         )
+        #Sorted by ml per barrel
+        wholesale_catalog.sort(key=lambda x: x.ml_per_barrel, reverse=True)
 
-            #         # Incase we buy barrels of two different sizes of a potion type
-            #         # we haven't seen before
-            #         potionRecipies.append(barrel.potion_type)
+        # Now, we are going to iterate by the lowest percentage first,
+        # so we can buy the most of the potion type that we have the least of.
+        for potionType in percentageMlAmounts:
 
-            # Otherwise, get details from inventory
-            #else:
-            for row in potionInventory:
-                potionName = row[0]
-                barrelPotionName = GetNameFromRecipe(barrel.potion_type)
-                if potionName == barrelPotionName:
-                    inventoryPotionMlAmount = row[1]
-                    break
-            """
-            At this point, the potion specific properties should be set up, new or old,
-            and we can start the logic for the purchase plan.
-            """
+            potionRecipe = potionType[1]
+            percentageOfMl = potionType[0]
 
-            associatePotionRecipe = [ x * 100 for x in barrel.potion_type ]
+            for catalogOption in wholesale_catalog:
 
-            result = conn.execute(
-                sqlalchemy.text(
-                    f"SELECT count FROM potion_inventory WHERE recipe = ARRAY{associatePotionRecipe}::smallint[]"
-                )
-            )
+                #If we have enough in inventory to where percentage means something.
+                if totalMlInInventory > 500:
+                    #if we have enough of the potion already and its a large or medium option, skip
+                    if percentageOfMl >= 0.5 and GetBarrelType(catalogOption.sku) > 1:
+                        continue
 
-            potionCount = result.first()[0]
-
-            # We will buy at least one of each barrel if possible.
-            # Right now buying the barrels if we don't have any potions of that type.
-            # Otherwise we want to save money to buy other barrels.
-            if runningGoldTotal >= barrel.price and potionCount == 0:
-                returnList.append(
-                    {
-                        "sku": barrel.sku,
-                        "quantity": 1,
-                    }
-                )
-                runningGoldTotal -= barrel.price
-                continue
-
-
-        """
-        We have now bought as much of at least one of each barrel as we can.
-        We can now buy more of the barrels we want most, which, right now, is just blue cause its my favorite color.
-        """
-
+                # The first catalog option will be the largest, buy that
+                # If we less than 500ml total, first come first serve
+                if catalogOption.potion_type == potionRecipe:
+                    if runningGoldTotal >= catalogOption.price:
+                        returnList.append(
+                            {
+                                "sku": catalogOption.sku,
+                                "quantity": 1,
+                            }
+                        )
+                        runningGoldTotal -= catalogOption.price
+                        break
 
         return returnList
     
@@ -159,31 +122,30 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
             # Calculate how much of each fluid we bought in this barrel
             for i in range(len(barrel.potion_type)):
                 totalFluidsBought[i] += barrel.potion_type[i] * totalMlBought
-            
-
-        # Setup case statements for the update query
-        caseStatements += f"when fluid_type = \'red\' then {totalFluidsBought[0]} "
-        caseStatements += f"when fluid_type = \'green\' then {totalFluidsBought[1]} "
-        caseStatements += f"when fluid_type = \'blue\' then {totalFluidsBought[2]} "
-        caseStatements += f"when fluid_type = \'dark\' then {totalFluidsBought[3]} "
         
 
         # Push the new inventory amounts to the database
         # Note: We are iterating through the whole table in the query
         # Also, don't love the case statements, if time, look into another way
+         #Update the barrel inventory
         conn.execute(
-            sqlalchemy.text(
-                f"UPDATE barrel_inventory SET ml_amount = ml_amount + (case {caseStatements} ELSE 0 end) \
-                    WHERE fluid_type IN (SELECT fluid_type FROM barrel_inventory)"
+            sqlalchemy
+            .update(barrel_inventory)
+            .values(ml_amount = barrel_inventory.c.ml_amount +
+                    sqlalchemy.case(
+                        (barrel_inventory.c.fluid_type == "red", totalFluidsBought[0]),
+                        (barrel_inventory.c.fluid_type == "blue", totalFluidsBought[1]),
+                        (barrel_inventory.c.fluid_type == "green", totalFluidsBought[2]),
+                        (barrel_inventory.c.fluid_type == "dark", totalFluidsBought[3]),
+                    )
             )
         )
 
-        # Update gold amount
-        result = conn.execute(
-            sqlalchemy.text(
-                f"UPDATE global_inventory SET gold = gold - {totalGoldSpent}"
-            )
+        #Update gold amount
+        conn.execute(
+            sqlalchemy
+            .update(global_inventory)
+            .values(gold = global_inventory.c.gold - totalGoldSpent)
         )
-
 
     return "OK\n"

@@ -9,10 +9,7 @@ It would be worth getting the database id and fluid type from barrel_inventory t
 
 """
 
-
-# We need to generate the enums from the already existing database so we are synced
-potionNameList = ["Elixir of Healing", "Dragon's Breath Tonic", "Witch's Brew", "Basilisk Bane Elixir", "Love Potion No. 9", "Potion of Invisibility", "Phoenix Feather Elixir", "Trollbane Tincture", "Potion of Eternal Youth", "Gorgon Gaze Antidote", "Moonlit Serenade Elixir", "Manticore Venom Remedy", "Potion of Strength", "Feywild Essence Elixir", "Potion of Clairvoyance", "Nightshade Elixir", "Chimera's Courage Brew", "Druid's Dream Potion", "Spectral Sight Serum", "Potion of Luck"]
-usableNameList = potionNameList.copy()
+# Get all the potion names
 potionNameRecipeAssociations ={}
 
 with db.engine.begin() as conn:
@@ -32,10 +29,3 @@ with db.engine.begin() as conn:
         name = potion[1]
 
         potionNameRecipeAssociations[name] = recipe
-
-        # Keep track of all names and all usable names
-        if name not in potionNameList:
-            potionNameList.append(name)
-
-        else:
-            usableNameList.remove(name)
