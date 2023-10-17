@@ -39,7 +39,7 @@ def create_cart(new_cart: NewCart):
             .values(customer=new_cart.customer)
         )
 
-        primaryKey = result.inserted_primary_key
+        primaryKey = result.inserted_primary_key[0]
 
     # Return the cart ID
     return {
