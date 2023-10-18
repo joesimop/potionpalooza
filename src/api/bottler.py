@@ -56,7 +56,7 @@ def get_bottle_plan():
             # All lists are ordered as [r,g,b,d]
             potionFluids = result.fetchall()
             potionFluidsTotal = [potionFluid[1] for potionFluid in potionFluids]
-            print(f"Total Fluids: (potionFluidsTotal}")
+            print(f"Total Fluids: {potionFluidsTotal}")
             returnList = []
 
             runningSum = sum(potionFluidsTotal)
