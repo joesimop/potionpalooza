@@ -29,6 +29,7 @@ niceValues = [0,1,5,10,12,13,25, 50, 100]
 # However, I do like its potion distribution and typing
 @router.post("/plan")
 def get_bottle_plan():
+
     """
     Go from barrel to bottle.
     Right now, we are just bottling the barrels as we receive them.

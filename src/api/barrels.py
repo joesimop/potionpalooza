@@ -107,7 +107,7 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
     Note: We will have enough gold to buy all the barrels because we ensured in /plan.
     """
 
-    totalGoldSpent = 0
+    totalGoldSpent  = 0
     caseStatements = ""
     totalFluidsBought = [0,0,0,0]
 
@@ -134,8 +134,8 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
             .values(ml_amount = barrel_inventory.c.ml_amount +
                     sqlalchemy.case(
                         (barrel_inventory.c.fluid_type == "red", totalFluidsBought[0]),
-                        (barrel_inventory.c.fluid_type == "blue", totalFluidsBought[1]),
-                        (barrel_inventory.c.fluid_type == "green", totalFluidsBought[2]),
+                        (barrel_inventory.c.fluid_type == "green", totalFluidsBought[1]),
+                        (barrel_inventory.c.fluid_type == "blue", totalFluidsBought[2]),
                         (barrel_inventory.c.fluid_type == "dark", totalFluidsBought[3]),
                     )
             )
