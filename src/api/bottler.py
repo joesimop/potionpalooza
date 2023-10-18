@@ -26,6 +26,7 @@ niceValues = [0,1,5,10,12,13,25, 50, 100]
 
 # Gets called 4 times a day
 # This might be the most horrendous piece of code I have ever written
+# However, I do like its potion distribution and typing
 @router.post("/plan")
 def get_bottle_plan():
     """
@@ -55,6 +56,7 @@ def get_bottle_plan():
             # All lists are ordered as [r,g,b,d]
             potionFluids = result.fetchall()
             potionFluidsTotal = [potionFluid[1] for potionFluid in potionFluids]
+            print(f"Total Fluids: (potionFluidsTotal}")
             returnList = []
 
             runningSum = sum(potionFluidsTotal)
@@ -140,6 +142,8 @@ def get_bottle_plan():
     zgreenTotal = sum([potion["potion_type"][1] * potion["quantity"] for potion in returnList])
     zblueTotal = sum([potion["potion_type"][2] * potion["quantity"] for potion in returnList])
     zdarkTotal = sum([potion["potion_type"][3] * potion["quantity"] for potion in returnList])
+
+    print(f"Potions Created: {returnList}")
     return returnList
 
 def CreatePotionName(recipe):
