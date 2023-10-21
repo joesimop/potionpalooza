@@ -6,7 +6,7 @@ from src.api import auth
 import sqlalchemy
 from sqlalchemy.sql.expression import case
 from src import database as db
-from src.schemas import carts, cart_items, potion_inventory, global_inventory
+from src.schemas import carts, cart_items, gold_ledger, potion_quantity_ledger,potion_inventory
 
 
 router = APIRouter(
@@ -33,6 +33,7 @@ def create_cart(new_cart: NewCart):
     """Creates a new cart and returns the cart ID."""
 
     with db.engine.begin() as conn:
+
         result = conn.execute(
             sqlalchemy
             .insert(carts)
@@ -52,6 +53,7 @@ def get_cart(cart_id: int):
     """ """
 
     with db.engine.begin() as conn:
+
         result = conn.execute(
             sqlalchemy
             .select(carts.c.customer)
@@ -134,7 +136,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
         # Get the items in the cart, not effecient, but good error handling
         result = conn.execute(
             sqlalchemy
-            .select(cart_items.c.name, cart_items.c.quantity)
+            .select(cart_items.c.name, cart_items.c.quantity, cart_items.c.potion_id)
             .where(cart_items.c.cart_id == cart_id)
         )
 
@@ -151,25 +153,26 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             goldTotal += quantity * 50
 
 
-        # Update potion in potion_inventory
-        # Note: item[0] is the sku, item[1] is the quantity
+        # Potion ledger subtraction from cart checkout
         conn.execute(
             sqlalchemy
-            .update(potion_inventory)
-            .values(count = potion_inventory.c.count - 
-                    case(
-                        {item[0]: item[1] for item in checkoutItems},
-                        value = potion_inventory.c.sku,
-                        else_ = 0
-                )
+            .insert(potion_quantity_ledger)
+            .values(
+                [
+                    {
+                        "potion_id": item[2],
+                        "delta": -item[1]
+                    }
+                    for item in checkoutItems
+                ]
             )
         )
 
-        # Update gold in global_inventory
+        # Add gold ledger to database
         conn.execute(
             sqlalchemy
-            .update(global_inventory)
-            .values(gold = global_inventory.c.gold + goldTotal)
+            .insert(gold_ledger)
+            .values(delta = goldTotal)
         )
 
         # Cascade deletes cart_items

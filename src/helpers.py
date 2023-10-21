@@ -9,6 +9,16 @@ def GetPotionRecipeFromName(name):
     elif name == "dark":
         return [0, 0, 0, 100]
     
+def GetRecipeNameFromIndex(index):
+    if index == 0:
+        return "red"
+    elif index == 1:
+        return "green"
+    elif index == 2:
+        return "blue"
+    elif index == 3:
+        return "dark"
+    
 def GetNameFromRecipe(recipe):
     """Returns the name of the potion from the recipe."""
     if recipe == [1, 0 , 0, 0]:

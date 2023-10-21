@@ -5,6 +5,8 @@ import math
 
 import sqlalchemy
 from src import database as db
+from sqlalchemy.sql.functions import coalesce
+from src.schemas import barrel_fluid_ledger, potion_quantity_ledger, gold_ledger
 
 router = APIRouter(
     prefix="/audit",
@@ -17,31 +19,26 @@ def get_inventory():
     """ """
     with db.engine.begin() as conn:
 
-        # Get gold
+        # Get amount of gold in inventory
         result = conn.execute(
-            sqlalchemy.text(
-                "SELECT gold FROM global_inventory"
-            )
+            sqlalchemy
+            .select(coalesce(sqlalchemy.func.sum(gold_ledger.c.delta).label("total_gold"), 0))
         )
         gold = result.first()[0]
 
-        # Get number of potions
+        # Get amount of potions in inventory
         result = conn.execute(
-            sqlalchemy.text(
-                "SELECT count FROM potion_inventory"
-            )
+            sqlalchemy
+            .select(coalesce(sqlalchemy.func.sum(potion_quantity_ledger.c.delta).label("total_quantity"), 0))
         )
-        #Sum up all the counts of potions
-        potionCount = sum([row[0] for row in result.fetchall()])
+        potionCount = result.first()[0]
 
-        # Get ml of fluid
+        # Get amount of fluid in barrels
         result = conn.execute(
-            sqlalchemy.text(
-                "SELECT ml_amount FROM barrel_inventory"
-            )
+            sqlalchemy
+            .select(coalesce(sqlalchemy.func.sum(barrel_fluid_ledger.c.delta).label("total_fluid"), 0))
         )
-        #Sum up all the ml of fluid
-        fluidAmount = sum([row[0] for row in result.fetchall()])
+        fluidAmount = result.first()[0]
 
     return {"number_of_potions": potionCount, 
             "ml_in_barrels": fluidAmount, 
