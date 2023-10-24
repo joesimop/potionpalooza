@@ -3,6 +3,9 @@ from fastapi import APIRouter
 import sqlalchemy
 from src import database as db
 
+from src.schemas import potion_quantity_ledger, potion_inventory
+from sqlalchemy.sql.functions import coalesce, sum
+
 router = APIRouter()
 
 
@@ -17,22 +20,33 @@ def get_catalog():
     # Can return a max of 20 items.
     with db.engine.begin() as conn:
 
-        # Get the number of possible red potions we can sell from inventory
+        quantities = sqlalchemy \
+                .select(potion_quantity_ledger.c.potion_id, sum(potion_quantity_ledger.c.delta).label("quantity")) \
+                .group_by(potion_quantity_ledger.c.potion_id) \
+                .alias("quantities")
+    
+
         result = conn.execute(
-            sqlalchemy.text(
-                "SELECT sku, count, recipe FROM potion_inventory"
-            )
+            sqlalchemy
+            .select(potion_inventory.c.sku, potion_inventory.c.recipe, quantities.c.quantity)
+            .select_from(quantities)
+            .join(potion_inventory, potion_inventory.c.id == quantities.c.potion_id)
+            .order_by(quantities.c.quantity.desc())
         )
 
-        potionInventory = result.fetchall()
+
+        potionCatalog = result.fetchall()
+        catalogLength = 6 if len(potionCatalog) >= 6 else len(potionCatalog)
+
         
-        for potion in potionInventory:
+        for i in range(catalogLength):
+            potion = potionCatalog[i]
 
             # Note: Name is literally not used for anything
             sku = potion[0]
             name = potion[0].replace("_", " ").lower()
-            quantity = potion[1]
-            recipe = potion[2]
+            quantity = potion[2]
+            recipe = potion[1]
 
             if quantity > 0:
                 catalog.append(
