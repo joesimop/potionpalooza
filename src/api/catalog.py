@@ -20,12 +20,14 @@ def get_catalog():
     # Can return a max of 20 items.
     with db.engine.begin() as conn:
 
+        # Subquery that requires alias to be defined before hand
+        # due to not being able to order by aggregate values
         quantities = sqlalchemy \
                 .select(potion_quantity_ledger.c.potion_id, sum(potion_quantity_ledger.c.delta).label("quantity")) \
                 .group_by(potion_quantity_ledger.c.potion_id) \
                 .alias("quantities")
     
-
+        # Gets list of potions in inventory, ordered by quantity
         result = conn.execute(
             sqlalchemy
             .select(potion_inventory.c.sku, potion_inventory.c.recipe, quantities.c.quantity)
@@ -34,11 +36,12 @@ def get_catalog():
             .order_by(quantities.c.quantity.desc())
         )
 
-
         potionCatalog = result.fetchall()
+
+        # Limits catalog to 6 items
         catalogLength = 6 if len(potionCatalog) >= 6 else len(potionCatalog)
 
-        
+        # Go through items and add them to catalog
         for i in range(catalogLength):
             potion = potionCatalog[i]
 
