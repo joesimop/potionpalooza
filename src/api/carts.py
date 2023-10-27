@@ -87,6 +87,9 @@ def search_orders(
     """
     
     itemsPerPage = 5
+    searchPageInt = int(search_page) if search_page.isdigit() else 0
+    offset = searchPageInt * itemsPerPage
+    offset += 1 if searchPageInt > 0 else 0
     
 
     with db.engine.begin() as conn:
@@ -101,18 +104,18 @@ def search_orders(
             .filter(invoices.c.customer.ilike(f"%{customer_name}%"),
                     invoices.c.item_sku.ilike(f"%{potion_sku}%"),
                     invoices.c.line_item_id > search_page)
-            .offset(search_page * itemsPerPage)
             .order_by(sortDict[sort_col].asc() if sort_order == search_sort_order.asc 
                       else sortDict[sort_col].desc())
             .limit(itemsPerPage)
+            .offset(offset)
         )
 
         # Get all results
         searchResults = result.fetchall()
 
     return {
-        "previous": "" if search_page == 0 else search_page - 1,
-        "next": search_page if len(searchResults) < itemsPerPage else search_page + 1,
+        "previous": "" if searchPageInt == 0 else searchPageInt - 1,
+        "next": "" if len(searchResults) < itemsPerPage else searchPageInt + 1,
         "results": [
             {
                 "line_item_id": line_item[0],
