@@ -91,6 +91,7 @@ def search_orders(
     offset = searchPageInt * itemsPerPage
     offset += 1 if searchPageInt > 0 else 0
     
+    print(searchPageInt)
 
     with db.engine.begin() as conn:
         
