@@ -102,8 +102,7 @@ def search_orders(
                     invoices.c.line_item_total, 
                     invoices.c.timestamp)
             .filter(invoices.c.customer.ilike(f"%{customer_name}%"),
-                    invoices.c.item_sku.ilike(f"%{potion_sku}%"),
-                    invoices.c.line_item_id > search_page)
+                    invoices.c.item_sku.ilike(f"%{potion_sku}%"))
             .order_by(sortDict[sort_col].asc() if sort_order == search_sort_order.asc 
                       else sortDict[sort_col].desc())
             .limit(itemsPerPage)
