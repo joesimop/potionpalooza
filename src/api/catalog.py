@@ -42,6 +42,7 @@ def get_catalog():
         catalogLength = 6 if len(potionCatalog) >= 6 else len(potionCatalog)
 
         # Go through items and add them to catalog
+        # Already ordered by the most potions we have.
         for i in range(catalogLength):
             potion = potionCatalog[i]
 

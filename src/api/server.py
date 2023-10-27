@@ -4,6 +4,7 @@ from pydantic import ValidationError
 from src.api import audit, carts, catalog, bottler, barrels, admin
 import json
 import logging
+from starlette.middleware.cors import CORSMiddleware
 import sys
 
 description = """
@@ -19,6 +20,16 @@ app = FastAPI(
         "name": "Lucas Pierce",
         "email": "lupierce@calpoly.edu",
     },
+)
+
+origins = ["https://potion-exchange.vercel.app"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["GET", "OPTIONS"],
+    allow_headers=["*"],
 )
 
 app.include_router(audit.router)

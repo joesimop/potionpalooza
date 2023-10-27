@@ -105,7 +105,7 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
                 result = conn.execute(
                     sqlalchemy
                     .insert(potion_inventory)
-                    .values(sku=potionSku, recipe=potionRecipe, count=0)
+                    .values(sku=potionSku, recipe=potionRecipe)
                 )
 
                 # Update backend variables
