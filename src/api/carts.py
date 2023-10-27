@@ -91,6 +91,10 @@ def search_orders(
     offset = searchPageInt * itemsPerPage
     offset += 1 if searchPageInt > 0 else 0
     
+    print(f"Previous: {10000 if searchPageInt == 0 else searchPageInt - 1}")
+    print(f"Current: {searchPageInt}")
+    print(f"Next: {searchPageInt + 1}")
+
 
     with db.engine.begin() as conn:
         
