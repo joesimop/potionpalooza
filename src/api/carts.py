@@ -39,10 +39,19 @@ class search_sort_order(str, Enum):
     asc = "asc"
     desc = "desc"   
 
+
+sortDict = {
+    search_sort_options.customer_name: invoices.c.customer,
+    search_sort_options.item_sku: invoices.c.item_sku,
+    search_sort_options.line_item_total: invoices.c.line_item_total,
+    search_sort_options.timestamp: invoices.c.timestamp
+}
+
 """
 ENDPOINTS -------------------------------------
 """
 
+lastPage = 0
 
 @router.get("/search/", tags=["search"])
 def search_orders(
@@ -76,19 +85,44 @@ def search_orders(
     Your results must be paginated, the max results you can return at any
     time is 5 total line items.
     """
+    
+    itemsPerPage = 5
+    
+
+    with db.engine.begin() as conn:
+        
+        result = conn.execute(
+            sqlalchemy
+            .select(invoices.c.line_item_id,
+                    invoices.c.customer, 
+                    invoices.c.item_sku, 
+                    invoices.c.line_item_total, 
+                    invoices.c.timestamp)
+            .filter(invoices.c.customer.ilike(f"%{customer_name}%"),
+                    invoices.c.item_sku.ilike(f"%{potion_sku}%"),
+                    invoices.c.line_item_id > search_page)
+            .offset(search_page * itemsPerPage)
+            .order_by(sortDict[sort_col].asc() if sort_order == search_sort_order.asc 
+                      else sortDict[sort_col].desc())
+            .limit(itemsPerPage)
+        )
+
+        # Get all results
+        searchResults = result.fetchall()
 
     return {
-        "previous": "",
-        "next": "",
+        "previous": "" if search_page == 0 else search_page - 1,
+        "next": search_page if len(searchResults) < itemsPerPage else search_page + 1,
         "results": [
             {
-                "line_item_id": 1,
-                "item_sku": "1 oblivion potion",
-                "customer_name": "Scaramouche",
-                "line_item_total": 50,
-                "timestamp": "2021-01-01T00:00:00Z",
+                "line_item_id": line_item[0],
+                "customer_name": line_item[1],
+                "item_sku": line_item[2],
+                "line_item_total": line_item[3],
+                "timestamp": line_item[4]
             }
-        ],
+            for line_item in searchResults
+        ]
     }
 
 
