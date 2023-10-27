@@ -23,14 +23,18 @@ def get_catalog():
         # Subquery that requires alias to be defined before hand
         # due to not being able to order by aggregate values
         quantities = sqlalchemy \
-                .select(potion_quantity_ledger.c.potion_id, sum(potion_quantity_ledger.c.delta).label("quantity")) \
+                .select(potion_quantity_ledger.c.potion_id, 
+                        sum(potion_quantity_ledger.c.delta).label("quantity")) \
                 .group_by(potion_quantity_ledger.c.potion_id) \
                 .alias("quantities")
     
         # Gets list of potions in inventory, ordered by quantity
         result = conn.execute(
             sqlalchemy
-            .select(potion_inventory.c.sku, potion_inventory.c.recipe, quantities.c.quantity)
+            .select(potion_inventory.c.sku, 
+                    potion_inventory.c.recipe, 
+                    quantities.c.quantity, 
+                    potion_inventory.c.price_per)
             .select_from(quantities)
             .join(potion_inventory, potion_inventory.c.id == quantities.c.potion_id)
             .order_by(quantities.c.quantity.desc())
@@ -51,6 +55,7 @@ def get_catalog():
             name = potion[0].replace("_", " ").lower()
             quantity = potion[2]
             recipe = potion[1]
+            price = potion[3]
 
             if quantity > 0:
                 catalog.append(
@@ -58,7 +63,7 @@ def get_catalog():
                         "sku": sku,
                         "name": name,
                         "quantity": quantity,
-                        "price": 50,
+                        "price": price,
                         "potion_type": recipe,
                     }
                 )

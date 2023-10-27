@@ -7,7 +7,7 @@ from enum import Enum
 import sqlalchemy
 from sqlalchemy.sql.expression import case
 from src import database as db
-from src.schemas import carts, cart_items, gold_ledger, potion_quantity_ledger,potion_inventory
+from src.schemas import carts, cart_items, gold_ledger, potion_inventory, potion_quantity_ledger, invoices
 
 
 router = APIRouter(
@@ -198,24 +198,35 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
         # Ensure Cart Exists
         get_cart(cart_id)
 
-        # Get the items in the cart, not effecient, but good error handling
+        # Get the customer name, items, and price of items in the cart
         result = conn.execute(
             sqlalchemy
-            .select(cart_items.c.name, cart_items.c.quantity, cart_items.c.potion_id)
-            .where(cart_items.c.cart_id == cart_id)
+            .select(
+                carts.c.customer, 
+                cart_items.c.name, 
+                cart_items.c.quantity, 
+                cart_items.c.potion_id, 
+                potion_inventory.c.price_per,
+                cart_items.c.id
+            )
+            .select_from(carts)
+            .join(cart_items, cart_items.c.cart_id == carts.c.id)
+            .select_from(cart_items)
+            .join(potion_inventory, cart_items.c.potion_id == potion_inventory.c.id)
+            .where(carts.c.id == cart_id)
         )
 
-        checkoutItems = result.fetchall()
+        checkoutInfo = result.fetchall()
 
-        if checkoutItems is None:
+        if checkoutInfo is None:
             raise HTTPException(status_code=404, detail="Cart is empty")
-    
-            
+
+
         # Add up gold total
         goldTotal = 0
-        for item in checkoutItems:
-            quantity = item[1]
-            goldTotal += quantity * 50
+        for item in checkoutInfo:
+            quantity = item[2]
+            goldTotal += quantity * item[4]
 
 
         # Potion ledger subtraction from cart checkout
@@ -225,10 +236,29 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             .values(
                 [
                     {
-                        "potion_id": item[2],
-                        "delta": -item[1]
+                        "potion_id": item[3],
+                        "delta": -item[2]
                     }
-                    for item in checkoutItems
+                    for item in checkoutInfo
+                ]
+            )
+        )
+
+        # Add invoice for each item to database
+        # Not really how invoices work, but okkaaayyy
+        conn.execute(
+            sqlalchemy
+            .insert(invoices)
+            .values(
+                [
+                    {
+                        "line_item_id": item[5],
+                        "customer": item[0],
+                        "item_sku": item[1],
+                        "line_item_total": item[2] * item[4]
+
+                    }
+                    for item in checkoutInfo
                 ]
             )
         )
