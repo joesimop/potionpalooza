@@ -117,8 +117,8 @@ def search_orders(
         searchResults = result.fetchall()
 
     return {
-        "previous": "" if searchPageInt == 0 else searchPageInt - 1,
-        "next": "" if len(searchResults) < itemsPerPage else searchPageInt + 1,
+        "previous": "" if searchPageInt == 0 else str(searchPageInt - 1),
+        "next": "" if len(searchResults) < itemsPerPage else str(searchPageInt + 1),
         "results": [
             {
                 "line_item_id": line_item[0],
